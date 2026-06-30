@@ -44,12 +44,7 @@ def after_request(response):
 # In-memory data store (resets when the server restarts).
 # For multi-user or persistent use, swap this for a real database.
 # ---------------------------------------------------------------------------
-STATIONS = [
-    {'name': 'Port Louis', 'lat': -20.1609, 'lon': 57.5012},
-    {'name': 'Curepipe', 'lat': -20.3147, 'lon': 57.5219},
-    {'name': 'Vacoas', 'lat': -20.2986, 'lon': 57.4781},
-    {'name': 'Ebène', 'lat': -20.2394, 'lon': 57.4878},
-]
+STATIONS = []
 
 MAURITIUS_BBOX = (-20.6, 57.25, -19.9, 57.85)  # south, west, north, east
 UTM_EPSG = 32740  # UTM zone 40S — accurate metre-based buffering for Mauritius
@@ -602,130 +597,83 @@ def ai_process_route():
         if len(route_geom) < 2:
             return jsonify({"error": "Invalid route geometry."}), 400
         
+        print("\n" + "="*60)
+        print("🤖 AI PROCESSING STARTED")
+        print("="*60)
+        print(f"📊 Route: {' → '.join(station_names)}")
+        print(f"📐 Generating materials schedule...")
+        
         # Generate materials schedule first
         poles, equipment_list, summary = generate_materials_schedule(route_geom, ug_segments)
         
-        # Prepare data for AI
-        ai_input = {
-            "route_info": {
-                "stations": station_names,
-                "total_distance_km": summary["total_distance_km"],
-                "oh_distance_km": summary["oh_distance_km"],
-                "ug_distance_km": summary["ug_distance_km"],
-                "pole_count": summary["pole_count"],
-            },
-            "materials": equipment_list,
-            "cost_summary": {
-                "total_cost_mur": summary["total_cost_mur"],
-                "equipment_cost_mur": summary["equipment_cost_mur"],
-                "labor_cost_mur": summary["labor_cost_mur"],
-                "pole_cost_mur": summary["pole_cost_mur"],
-                "conduit_cost_mur": summary["conduit_cost_mur"],
-            },
-            "ug_segments_count": len(ug_segments)
-        }
+        print(f"   - Distance: {summary['total_distance_km']:.2f} km")
+        print(f"   - Poles: {summary['pole_count']}")
+        print(f"   - Total Cost: MUR {summary['total_cost_mur']:,.2f}")
+        print("🧠 Sending to Ollama (qwen2.5:3b)...")
         
-        # Create prompt for AI
-        prompt = f"""You are a civil engineering and telecom infrastructure expert. Analyze the following route data and provide a detailed report.
+        # Create optimized prompt - shorter but complete
+        prompt = f"""Analyze this fiber optic cable route and provide a detailed report.
 
-ROUTE DATA:
-- Stations: {', '.join(station_names)}
-- Total Distance: {summary['total_distance_km']:.2f} km
-- Overhead Distance: {summary['oh_distance_km']:.2f} km
-- Underground Distance: {summary['ug_distance_km']:.2f} km
-- Number of Poles: {summary['pole_count']}
-- Underground Segments: {len(ug_segments)}
+ROUTE:
+Stations: {' → '.join(station_names)}
+Total Distance: {summary['total_distance_km']:.2f} km
+Overhead: {summary['oh_distance_km']:.2f} km
+Underground: {summary['ug_distance_km']:.2f} km
+Poles: {summary['pole_count']} (50m spacing)
+UG Segments: {len(ug_segments)}
 
-MATERIALS REQUIRED:
+MATERIALS:
 {format_equipment_for_ai(equipment_list)}
 
-COSTS (in MUR):
-- Total Cost: {summary['total_cost_mur']:,.2f}
-- Equipment Cost: {summary['equipment_cost_mur']:,.2f}
-- Labor Cost: {summary['labor_cost_mur']:,.2f}
-- Pole Cost: {summary['pole_cost_mur']:,.2f}
+COSTS (MUR):
+Total: {summary['total_cost_mur']:,.2f}
+Equipment: {summary['equipment_cost_mur']:,.2f}
+Labor: {summary['labor_cost_mur']:,.2f}
+Poles: {summary['pole_cost_mur']:,.2f}
 
-Please provide a professional project report with the following sections:
-1. EXECUTIVE SUMMARY - brief overview of the project scope
-2. ROUTE ANALYSIS - detailed breakdown of the route characteristics
-3. MATERIAL REQUIREMENTS - analysis of materials needed with recommendations
-4. COST BREAKDOWN - detailed cost analysis with insights
-5. RISK ASSESSMENT - potential challenges and mitigation strategies
-6. RECOMMENDATIONS - best practices and next steps
-7. PROJECT TIMELINE ESTIMATE - rough timeline based on distance
+Provide a professional report with:
+1. EXECUTIVE SUMMARY - Project overview and key metrics
+2. ROUTE ANALYSIS - OH vs UG breakdown with recommendations
+3. MATERIAL REQUIREMENTS - List with quantities and justification
+4. COST BREAKDOWN - Detailed breakdown with insights
+5. RISK ASSESSMENT - Key risks and mitigation strategies
+6. RECOMMENDATIONS - Best practices and next steps
+7. TIMELINE - Estimated project duration
 
-Format the response as a structured report with clear sections. Provide practical engineering insights and recommendations."""
+Keep it practical and actionable. Focus on engineering insights specific to fiber optic installation in Mauritius."""
 
         try:
-            # Check if ollama is available
             import ollama
             
-            # Call Ollama
+            # Call Ollama with optimized settings for speed
             response = ollama.chat(
                 model=OLLAMA_MODEL,
                 messages=[{
                     'role': 'user',
                     'content': prompt
                 }],
-                stream=False
+                stream=False,
+                options={
+                    'temperature': 0.3,     # Lower = more focused, faster
+                    'top_k': 40,
+                    'top_p': 0.9,
+                    'num_predict': 3000,    # Allow enough tokens for complete report
+                }
             )
             
             ai_report = response['message']['content']
+            print(f"✅ AI Response received! ({len(ai_report)} characters)")
             
         except ImportError:
-            # Ollama not installed - return fallback report
-            ai_report = f"""PROJECT REPORT - ROUTE ANALYSIS
-
-1. EXECUTIVE SUMMARY
-This project involves installing fiber optic cable along a route of {summary['total_distance_km']:.2f} km with {summary['pole_count']} poles.
-
-2. ROUTE ANALYSIS
-- Total Distance: {summary['total_distance_km']:.2f} km
-- Overhead: {summary['oh_distance_km']:.2f} km ({summary['oh_distance_km']/summary['total_distance_km']*100:.1f}%)
-- Underground: {summary['ug_distance_km']:.2f} km ({summary['ug_distance_km']/summary['total_distance_km']*100:.1f}%)
-- Number of Poles: {summary['pole_count']}
-- Pole Spacing: 50m
-
-3. MATERIAL REQUIREMENTS
-{format_equipment_for_ai(equipment_list)}
-
-4. COST BREAKDOWN
-- Total Cost: MUR {summary['total_cost_mur']:,.2f}
-- Equipment Cost: MUR {summary['equipment_cost_mur']:,.2f}
-- Labor Cost: MUR {summary['labor_cost_mur']:,.2f}
-- Pole Cost: MUR {summary['pole_cost_mur']:,.2f}
-
-5. RECOMMENDATIONS
-- Install poles at 50m intervals as planned
-- Use 48F cable for main backbone
-- Ensure proper grounding at each pole
-- Install conduits in underground sections
-
-6. PROJECT TIMELINE ESTIMATE
-Estimated completion: {max(1, int(summary['total_distance_km'] * 2))} days
-
-Note: This is a fallback report. Install Ollama for AI-powered analysis."""
-            
+            print("❌ Ollama not installed!")
+            ai_report = generate_fallback_report(summary, equipment_list, station_names)
         except Exception as e:
-            # Ollama error - return fallback
-            ai_report = f"""PROJECT REPORT - ROUTE ANALYSIS
-
-1. EXECUTIVE SUMMARY
-This project involves installing fiber optic cable along a route of {summary['total_distance_km']:.2f} km.
-
-2. ROUTE ANALYSIS
-- Total Distance: {summary['total_distance_km']:.2f} km
-- Overhead: {summary['oh_distance_km']:.2f} km
-- Underground: {summary['ug_distance_km']:.2f} km
-- Number of Poles: {summary['pole_count']}
-
-3. MATERIAL REQUIREMENTS
-{format_equipment_for_ai(equipment_list)}
-
-4. COST BREAKDOWN
-- Total Cost: MUR {summary['total_cost_mur']:,.2f}
-
-Note: AI analysis unavailable. Install Ollama with: pip install ollama"""
+            print(f"❌ Ollama Error: {str(e)}")
+            ai_report = generate_fallback_report(summary, equipment_list, station_names)
+        
+        print("="*60)
+        print("✅ AI PROCESSING COMPLETE")
+        print("="*60 + "\n")
         
         return jsonify({
             "success": True,
@@ -740,6 +688,58 @@ Note: AI analysis unavailable. Install Ollama with: pip install ollama"""
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"AI processing failed: {str(e)}"}), 500
+
+def generate_fallback_report(summary, equipment_list, station_names):
+    """Generate a quick fallback report when Ollama is unavailable"""
+    report = f"""FIBER OPTIC ROUTE ANALYSIS REPORT
+
+1. EXECUTIVE SUMMARY
+Route: {' → '.join(station_names)}
+Total Distance: {summary['total_distance_km']:.2f} km
+Poles Required: {summary['pole_count']}
+Total Estimated Cost: MUR {summary['total_cost_mur']:,.2f}
+
+2. ROUTE ANALYSIS
+- Overhead Distance: {summary['oh_distance_km']:.2f} km ({summary['oh_distance_km']/summary['total_distance_km']*100:.1f}%)
+- Underground Distance: {summary['ug_distance_km']:.2f} km ({summary['ug_distance_km']/summary['total_distance_km']*100:.1f}%)
+- Pole Spacing: 50m
+- UG Segments: {len(ug_segments) if 'ug_segments' in locals() else 0}
+
+3. MATERIAL REQUIREMENTS
+{format_equipment_for_ai(equipment_list)}
+
+4. COST BREAKDOWN
+- Equipment: MUR {summary['equipment_cost_mur']:,.2f} ({summary['equipment_cost_mur']/summary['total_cost_mur']*100:.1f}%)
+- Labor: MUR {summary['labor_cost_mur']:,.2f} ({summary['labor_cost_mur']/summary['total_cost_mur']*100:.1f}%)
+- Poles: MUR {summary['pole_cost_mur']:,.2f} ({summary['pole_cost_mur']/summary['total_cost_mur']*100:.1f}%)
+- Conduit: MUR {summary['conduit_cost_mur']:,.2f}
+- Joint Boxes: MUR {summary['joint_box_cost_mur']:,.2f}
+- TOTAL: MUR {summary['total_cost_mur']:,.2f}
+
+5. RECOMMENDATIONS
+- Install poles at 50m intervals on overhead sections
+- Use HDPE conduits for underground sections
+- Include 15% material contingency
+- Plan for proper grounding at each pole
+- Consider cyclone-resistant hardware for overhead sections
+
+6. PROJECT TIMELINE
+Estimated duration: {max(1, int(summary['total_distance_km'] * 1.5))} working days
+- Survey & Planning: {max(1, int(summary['total_distance_km'] * 0.2))} days
+- Material Procurement: 3-5 days
+- Construction: {max(1, int(summary['total_distance_km'] * 1.0))} days
+- Testing & Commissioning: {max(1, int(summary['total_distance_km'] * 0.1))} days
+
+7. RISK ASSESSMENT
+- Weather: Cyclones can cause delays during summer months
+- Right-of-Way: Permits needed for urban areas
+- Soil Conditions: Rock may require specialized trenching equipment
+- Traffic Management: Required for road crossings
+- Material Security: Secure storage needed to prevent theft
+
+Note: This is a calculated report. Install Ollama for AI-powered insights."""
+    
+    return report
 
 
 @app.route("/api/ai-download-excel", methods=["POST"])

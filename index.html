@@ -206,68 +206,85 @@
 
                 <!-- ROUTE PLANNER -->
                 <div id="page-route-planner" class="page">
-                    <div class="rp-layout">
-                        <aside class="rp-sidebar table-card">
-                            <div>
-                                <div class="rp-section-title">Add Stations</div>
-                                <form id="rp-upload-form" class="form-group">
-                                    <label for="rp-excel-file">Upload Excel (.xlsx)</label>
-                                    <input type="file" id="rp-excel-file" accept=".xlsx" />
-                                    <div style="font-size:11px;color:var(--text3);margin-top:4px;">Columns: stations, latitude, longitude</div>
-                                    <button type="submit" class="btn btn-outline btn-sm" style="margin-top:8px;">Upload</button>
-                                </form>
-                                <hr style="border:none;border-top:1px solid var(--border);margin:12px 0;">
-                                <form id="rp-manual-form">
-                                    <div class="form-group"><label for="rp-station-name">Name</label><input type="text" id="rp-station-name" /></div>
-                                    <div class="form-group"><label for="rp-station-lat">Latitude</label><input type="number" step="0.000001" id="rp-station-lat"/></div>
-                                    <div class="form-group"><label for="rp-station-lon">Longitude</label><input type="number" step="0.000001" id="rp-station-lon"/></div>
-                                    <button type="submit" class="btn btn-accent btn-sm">Add station</button>
-                                </form>
-                                <div id="rp-upload-status" class="rp-status"></div>
-                            </div>
-
-                            <div>
-                                <div class="rp-section-title">Stations (<span id="rp-station-count">0</span>)</div>
-                                <div class="rp-station-list" id="rp-station-list"></div>
-                                <button class="btn btn-danger btn-sm" id="rp-clear-stations" style="margin-top:8px;width:100%;">Clear all stations</button>
-                            </div>
-
-                            <div>
-                                <div class="rp-section-title">Route</div>
-                                <div class="rp-chain" id="rp-route-chain"></div>
-                                <div class="rp-btn-row" style="margin-top:8px;">
-                                    <button class="btn btn-outline btn-sm" id="rp-undo-station">Undo</button>
-                                    <button class="btn btn-outline btn-sm" id="rp-clear-route">Clear route</button>
-                                    <button class="btn btn-accent btn-sm" id="rp-ai-process" style="background:#6c3483;">🤖 AI Analysis</button>
+                    <div class="rp-container">
+                        <!-- Top Row: Sidebar + Map -->
+                        <div class="rp-top-row">
+                            <!-- Sidebar -->
+                            <aside class="rp-sidebar table-card">
+                                <div>
+                                    <div class="rp-section-title">Add Stations</div>
+                                    <form id="rp-upload-form" class="form-group">
+                                        <label for="rp-excel-file">Upload Excel (.xlsx)</label>
+                                        <input type="file" id="rp-excel-file" accept=".xlsx" />
+                                        <div style="font-size:11px;color:var(--text3);margin-top:4px;">Columns: stations, latitude, longitude</div>
+                                        <button type="submit" class="btn btn-outline btn-sm" style="margin-top:8px;">Upload</button>
+                                    </form>
+                                    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0;">
+                                    <form id="rp-manual-form">
+                                        <div class="form-group"><label for="rp-station-name">Name</label><input type="text" id="rp-station-name" /></div>
+                                        <div class="form-group"><label for="rp-station-lat">Latitude</label><input type="number" step="0.000001" id="rp-station-lat"/></div>
+                                        <div class="form-group"><label for="rp-station-lon">Longitude</label><input type="number" step="0.000001" id="rp-station-lon"/></div>
+                                        <button type="submit" class="btn btn-accent btn-sm">Add station</button>
+                                    </form>
+                                    <div id="rp-upload-status" class="rp-status"></div>
                                 </div>
-                                <div id="rp-route-result" class="rp-status"></div>
-                                <div id="rp-ai-status" class="rp-status" style="margin-top:4px;"></div>
-                            </div>
 
-                            <div>
-                                <div class="rp-section-title">Underground Sections</div>
-                                <button class="btn btn-sm" id="rp-ug-draw-btn" style="background:rgba(196,155,58,.1);color:var(--warning);border:1px solid rgba(196,155,58,.3);width:100%;">Draw UG Section</button>
-                                <div class="rp-ug-list" id="rp-ug-list" style="margin-top:8px;"></div>
-                                <button class="btn btn-outline btn-sm" id="rp-ug-clear" style="margin-top:6px;">Clear UG sections</button>
-                            </div>
+                                <div>
+                                    <div class="rp-section-title">Stations (<span id="rp-station-count">0</span>)</div>
+                                    <div class="rp-station-list" id="rp-station-list"></div>
+                                    <button class="btn btn-danger btn-sm" id="rp-clear-stations" style="margin-top:8px;width:100%;">Clear all stations</button>
+                                </div>
 
-                            <div>
-                                <div class="rp-section-title">Export</div>
-                                <button class="btn btn-accent btn-sm" id="rp-download-xlsx" style="width:100%;">Download Materials Spreadsheet</button>
-                                <button class="btn btn-accent btn-sm" id="rp-download-ai" style="width:100%;margin-top:4px;background:#6c3483;">🤖 Download AI Report</button>
-                                <div id="rp-download-status" class="rp-status"></div>
-                            </div>
-                        </aside>
+                                <div>
+                                    <div class="rp-section-title">Route</div>
+                                    <div class="rp-chain" id="rp-route-chain"></div>
+                                    <div class="rp-btn-row" style="margin-top:8px;">
+                                        <button class="btn btn-outline btn-sm" id="rp-undo-station">Undo</button>
+                                        <button class="btn btn-outline btn-sm" id="rp-clear-route">Clear route</button>
+                                        <button class="btn btn-outline btn-sm" id="rp-show-summary" style="background:var(--accent2);color:#fff;">Manual Calculations</button>
+                                    </div>
+                                    <div id="rp-route-result" class="rp-status"></div>
+                                </div>
 
-                        <div class="rp-main">
-                            <div id="rp-ug-banner" class="rp-banner"></div>
-                            <div class="table-card rp-map-card"><div id="rp-map"></div></div>
-                            <div class="rp-bar-wrap" id="rp-bar-wrap"><div id="rp-bar-inner" style="position:relative;height:100%;"></div></div>
-                            <div class="rp-bar-labels" id="rp-bar-labels"><span>0%</span><span>100%</span></div>
-                            <div class="table-card" id="rp-summary-panel" style="display:none;padding:18px;">                                <div class="rp-section-title">Route Summary &amp; Material Estimate</div>
-                                <div class="rp-summary-grid" id="rp-summary-grid"></div>
-                                <div class="rp-eq-list" id="rp-equipment-preview"></div>
+                                <div>
+                                    <div class="rp-section-title">Underground Sections</div>
+                                    <button class="btn btn-sm" id="rp-ug-draw-btn" style="background:rgba(196,155,58,.1);color:var(--warning);border:1px solid rgba(196,155,58,.3);width:100%;">Draw UG Section</button>
+                                    <div class="rp-ug-list" id="rp-ug-list" style="margin-top:8px;"></div>
+                                    <button class="btn btn-outline btn-sm" id="rp-ug-clear" style="margin-top:6px;">Clear UG sections</button>
+                                </div>
+
+                                <div>
+                                    <div class="rp-section-title">AI Analysis</div>
+                                    <button class="btn btn-accent btn-sm" id="rp-ai-process" style="width:100%;background:#6c3483;">🤖 Run AI Analysis</button>
+                                    <div id="rp-ai-status" class="rp-status" style="margin-top:4px;"></div>
+                                </div>
+
+                                <div>
+                                    <div class="rp-section-title">Export</div>
+                                    <button class="btn btn-accent btn-sm" id="rp-download-xlsx" style="width:100%;">Download Materials Spreadsheet</button>
+                                    <button class="btn btn-accent btn-sm" id="rp-download-ai" style="width:100%;margin-top:4px;background:#6c3483;">🤖 Download AI Report</button>
+                                    <div id="rp-download-status" class="rp-status"></div>
+                                </div>
+                            </aside>
+
+                            <!-- Map -->
+                            <div class="rp-map-wrapper">
+                                <div id="rp-ug-banner" class="rp-banner"></div>
+                                <div class="table-card rp-map-card">
+                                    <div id="rp-map"></div>
+                                </div>
+                                <div class="rp-bar-wrap" id="rp-bar-wrap">
+                                    <div id="rp-bar-inner" style="position:relative;height:100%;"></div>
+                                </div>
+                                <div class="rp-bar-labels" id="rp-bar-labels"><span>0%</span><span>100%</span></div>
                             </div>
+                        </div>
+
+                        <!-- Bottom Row: Manual Output - Full Width -->
+                        <div class="table-card" id="rp-summary-panel" style="display:none;padding:18px;width:100%;margin-top:14px;">
+                            <div class="rp-section-title">Route Summary &amp; Material Estimate</div>
+                            <div class="rp-summary-grid" id="rp-summary-grid"></div>
+                            <div class="rp-eq-list" id="rp-equipment-preview"></div>
                         </div>
                     </div>
                 </div>

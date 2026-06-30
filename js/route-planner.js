@@ -16,6 +16,40 @@ let rpStationMarkers = {};
 let rpMap = null;
 let rpInitialized = false;
 
+// ── LOADING ANIMATION (Under Button) ──
+
+function showAILoading() {
+    const status = document.getElementById("rp-ai-status");
+    status.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 0;">
+            <div style="
+                width: 16px;
+                height: 16px;
+                border: 2px solid var(--border);
+                border-top: 2px solid #6c3483;
+                border-radius: 50%;
+                animation: spin 0.6s linear infinite;
+            "></div>
+            <span style="font-size:13px;color:var(--text2);">🤖 AI is analyzing your route... This may take 10-30 seconds.</span>
+        </div>
+        <style>
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        </style>
+    `;
+    status.className = "rp-status ok";
+}
+
+function hideAILoading() {
+    const status = document.getElementById("rp-ai-status");
+    status.innerHTML = "";
+    status.className = "rp-status";
+}
+
+// ── INIT ──
+
 function rpInit() {
     if (!rpInitialized) {
         rpMap = L.map("rp-map", { zoomControl: true }).setView([-20.25, 57.55], 11);
@@ -25,14 +59,17 @@ function rpInit() {
         rpBindEvents();
         rpLoadStations();
         rpInitialized = true;
+        createLoadingOverlay();
     }
     setTimeout(() => rpMap && rpMap.invalidateSize(), 50);
 }
 
 function rpStatus(id, msg, cls = "") {
     const el = document.getElementById(id);
-    el.textContent = msg;
-    el.className = "rp-status " + cls;
+    if (el) {
+        el.textContent = msg;
+        el.className = "rp-status " + cls;
+    }
 }
 
 async function rpLoadStations() {
@@ -48,6 +85,7 @@ async function rpLoadStations() {
 
 function rpRenderStations() {
     const list = document.getElementById("rp-station-list");
+    if (!list) return;
     list.innerHTML = "";
     document.getElementById("rp-station-count").textContent = rpStations.length;
     rpStations.forEach(s => {
@@ -69,6 +107,7 @@ function rpRenderStations() {
 
 function rpRenderRouteChain() {
     const el = document.getElementById("rp-route-chain");
+    if (!el) return;
     el.innerHTML = "";
     rpRouteStationNames.forEach((n, i) => {
         if (i > 0) {
@@ -97,7 +136,8 @@ function rpClearRoute() {
     rpClearUGSegments();
     rpStatus("rp-route-result", "");
     document.getElementById("rp-summary-panel").style.display = "none";
-    document.getElementById("rp-ai-status").textContent = "";
+    document.getElementById("rp-ai-status").innerHTML = "";
+    document.getElementById("rp-show-summary").textContent = "📊 Show Summary"; // Reset button text
 }
 
 function rpClearRouteLayer() {
@@ -330,6 +370,25 @@ function rpExtractSegmentPts(cum, startM, endM) {
     return pts;
 }
 
+function rpShowSummary() {
+    const panel = document.getElementById("rp-summary-panel");
+    if (!rpRoadGeometry.length || rpRouteStationNames.length < 2) {
+        toast('Please plot a route first.', 'error');
+        return;
+    }
+    
+    // Toggle visibility
+    if (panel.style.display === "block") {
+        panel.style.display = "none";
+        document.getElementById("rp-show-summary").textContent = "📊 Show Summary";
+    } else {
+        // Make sure data is up to date
+        rpUpdateSummary();
+        panel.style.display = "block";
+        document.getElementById("rp-show-summary").textContent = "📊 Hide Summary";
+    }
+}
+
 function rpUpdateSummary() {
     if (!rpRoadGeometry.length || rpRouteTotalM === 0) {
         document.getElementById("rp-summary-panel").style.display = "none";
@@ -371,7 +430,7 @@ function rpUpdateSummary() {
                       anchor48fCost + anchor12fCost + bracketCost + tespaCost +
                       buckleCost + conduitCost + jointBoxCost + laborCost;
 
-    document.getElementById("rp-summary-panel").style.display = "block";
+    // Update content but DON'T show it - keep hidden until button click
     document.getElementById("rp-summary-grid").innerHTML = `
         <span class="label">Total Distance</span><span class="value">${(rpRouteTotalM/1000).toFixed(2)} km</span>
         <span class="label">Overhead</span><span class="value amber">${(totalOh/1000).toFixed(2)} km</span>
@@ -400,6 +459,19 @@ function rpUpdateSummary() {
         .filter(item => item.qty > 0)
         .map(item => `<div class="rp-eq-item"><span>${item.name}</span><span>${item.qty} ${item.unit}</span></div>`)
         .join("");
+    
+    // Store the data for later use
+    window._summaryData = {
+        totalDistance: (rpRouteTotalM/1000).toFixed(2),
+        overhead: (totalOh/1000).toFixed(2),
+        underground: (totalUg/1000).toFixed(2),
+        poles: poleCount,
+        cable48f: (cable48f/1000).toFixed(2),
+        cable12f: (cable12f/1000).toFixed(2),
+        conduitUnits: conduitUnits,
+        jointBoxes: jointBoxes,
+        totalCost: totalCost.toFixed(0)
+    };
 }
 
 function rpBindEvents() {
@@ -509,10 +581,13 @@ function rpBindEvents() {
 
     // AI Process button
     document.getElementById("rp-ai-process").addEventListener("click", rpProcessWithAI);
-    
     // AI Download button
     document.getElementById("rp-download-ai").addEventListener("click", downloadAIReport);
+    // Show Summary button
+    document.getElementById("rp-show-summary").addEventListener("click", rpShowSummary);
 }
+
+
 
 // ── AI PROCESSING ──
 
@@ -522,7 +597,8 @@ async function rpProcessWithAI() {
         return;
     }
     
-    rpStatus("rp-ai-status", "🤖 AI is analyzing your route... This may take a moment.", "ok");
+    // Show loading animation under button
+    showAILoading();
     
     const body = {
         station_names: rpRouteStationNames,
@@ -536,6 +612,9 @@ async function rpProcessWithAI() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body)
         });
+        
+        // Hide loading animation
+        hideAILoading();
         
         if (!r.ok) {
             const err = await r.json();
@@ -567,6 +646,7 @@ async function rpProcessWithAI() {
         showAIPreview(data.report, data.summary);
         
     } catch (err) {
+        hideAILoading();
         rpStatus("rp-ai-status", "Connection error: " + err.message, "err");
     }
 }
