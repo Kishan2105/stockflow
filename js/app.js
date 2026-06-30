@@ -13,6 +13,8 @@ const ADMIN_PASS  = 'admin123';
 
 // ── APP INIT ──
 
+// js/app.js - Make sure this part is correct
+
 async function initApp() {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
@@ -23,21 +25,68 @@ async function initApp() {
     buildNav();
 
     try {
+        // Load all data from Firebase
         const [invSnap, mvSnap, flagSnap, locSnap] = await Promise.all([
             db.ref('inventory').once('value'),
             db.ref('stock_movements').once('value'),
             db.ref('inventory_flags').once('value'),
             db.ref('locations').once('value')
         ]);
+        
+        // Store data in global variables
         allInventory = invSnap.val() || {};
         allMovements = mvSnap.val() || {};
         allFlags = flagSnap.val() || {};
         allLocations = locSnap.val() || {};
-        if (!Object.keys(allInventory).length) await seedDemoData();
-    } catch(e) { console.error(e); }
+        
+        // Seed demo data if inventory is empty
+        if (!Object.keys(allInventory).length) {
+            await seedDemoData();
+            // Reload data after seeding
+            const newInvSnap = await db.ref('inventory').once('value');
+            allInventory = newInvSnap.val() || {};
+        }
+    } catch(e) { 
+        console.error('Error loading data:', e);
+        toast('Error loading data from Firebase. Please check your connection.', 'error');
+    }
 
     subscribeData();
     navigate('dashboard');
+}
+
+function subscribeData() {
+    // Real-time updates for inventory
+    db.ref('inventory').on('value', snap => { 
+        allInventory = snap.val() || {}; 
+        refreshDashboardIfActive(); 
+        if (document.getElementById('page-inventory').classList.contains('active')) renderInventory(); 
+    });
+    
+    // Real-time updates for stock movements
+    db.ref('stock_movements').on('value', snap => { 
+        allMovements = snap.val() || {}; 
+        refreshDashboardIfActive(); 
+        if (document.getElementById('page-movements').classList.contains('active')) renderMovements(); 
+    });
+    
+    // Real-time updates for flags
+    db.ref('inventory_flags').on('value', snap => {
+        allFlags = snap.val() || {};
+        if (document.getElementById('page-inventory').classList.contains('active')) renderInventory();
+        if (document.getElementById('page-reports').classList.contains('active')) renderReports();
+    });
+    
+    // Real-time updates for locations
+    db.ref('locations').on('value', snap => { 
+        allLocations = snap.val() || {}; 
+    });
+    
+    // Real-time updates for notifications
+    db.ref('notifications/admin').on('value', snap => {
+        allNotifs = snap.val() ? Object.values(snap.val()) : [];
+        updateNotifBadge();
+    });
 }
 
 function buildNav() {
@@ -120,6 +169,7 @@ function refreshDashboardIfActive() {
     if (document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
 }
 
+
 async function seedDemoData() {
     const items = {
         'itm-001': { 
@@ -163,7 +213,25 @@ async function seedDemoData() {
             supplier:'BandCo', dateAdded: now(), lastUpdated: now() 
         }
     };
+    
     await db.ref('inventory').set(items);
+    
+    // Add some sample movements
+    const movements = {
+        'mv-001': { 
+            id:'mv-001', date: now(), itemId:'itm-001', itemName:'48F cable', 
+            qty:500, unit:'m', type:'Stock Out', 
+            user:'Admin User', remarks:'Project A', ref:'PO-123' 
+        },
+        'mv-002': { 
+            id:'mv-002', date: new Date(Date.now() - 86400000).toISOString(), 
+            itemId:'itm-002', itemName:'12F cable', 
+            qty:300, unit:'m', type:'Stock Out', 
+            user:'Admin User', remarks:'Project B', ref:'PO-124' 
+        }
+    };
+    await db.ref('stock_movements').set(movements);
+    
     logAudit('System', 'Seed', 'Demo data seeded');
     toast('Demo data loaded!', 'success');
 }
