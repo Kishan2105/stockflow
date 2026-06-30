@@ -12,6 +12,7 @@ function renderReports() {
 
     renderFlags();
     renderAuditLog();
+    renderContractorReports();
 }
 
 function renderFlags() {
@@ -211,4 +212,35 @@ function exportAuditExcel() {
         logs.forEach(l => data.push([fmtDate(l.time),l.user,l.action,l.details]));
         downloadXLSX(data, 'Audit_Log');
     });
+}
+
+// ── CONTRACTOR REPORTS ──
+
+function renderContractorReports() {
+    const tbody = document.getElementById('contractor-reports-tbody');
+    if (!tbody) return;
+    
+    const reports = Object.values(allMonthlyReports || {});
+    
+    if (!reports.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No contractor reports submitted yet.</td></tr>';
+        return;
+    }
+    
+    // Sort by date, newest first
+    reports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    tbody.innerHTML = reports.map(r => {
+        const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const monthLabel = monthNames[(parseInt(r.month) || 1) - 1];
+        
+        return `<tr>
+            <td><strong>${r.contractorName || 'Unknown'}</strong></td>
+            <td>${r.company || '—'}</td>
+            <td>${monthLabel} ${r.year || ''}</td>
+            <td>${r.project || '—'}</td>
+            <td>${r.items?.length || 0}</td>
+            <td>${fmtDate(r.createdAt)}</td>
+        </tr>`;
+    }).join('');
 }

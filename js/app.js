@@ -5,6 +5,7 @@ let allMovements = {};
 let allNotifs = [];
 let allFlags = {};
 let allLocations = {};
+let allMonthlyReports = {};  // ← ADD THIS
 let charts = {};
 
 // ── ADMIN CREDENTIALS ──
@@ -25,30 +26,30 @@ async function initApp() {
     buildNav();
 
     try {
-        // Load all data from Firebase
-        const [invSnap, mvSnap, flagSnap, locSnap] = await Promise.all([
+        const [invSnap, mvSnap, flagSnap, locSnap, reportSnap] = await Promise.all([
             db.ref('inventory').once('value'),
             db.ref('stock_movements').once('value'),
             db.ref('inventory_flags').once('value'),
-            db.ref('locations').once('value')
+            db.ref('locations').once('value'),
+            db.ref('monthly_reports').once('value')  // ← ADD THIS
         ]);
         
-        // Store data in global variables
         allInventory = invSnap.val() || {};
         allMovements = mvSnap.val() || {};
         allFlags = flagSnap.val() || {};
         allLocations = locSnap.val() || {};
+        allMonthlyReports = reportSnap.val() || {};  // ← ADD THIS
         
-        // Seed demo data if inventory is empty
+        console.log('✅ Monthly reports loaded:', Object.keys(allMonthlyReports).length);
+        
         if (!Object.keys(allInventory).length) {
             await seedDemoData();
-            // Reload data after seeding
             const newInvSnap = await db.ref('inventory').once('value');
             allInventory = newInvSnap.val() || {};
         }
     } catch(e) { 
         console.error('Error loading data:', e);
-        toast('Error loading data from Firebase. Please check your connection.', 'error');
+        toast('Error loading data from Firebase.', 'error');
     }
 
     subscribeData();
@@ -241,4 +242,41 @@ async function seedDemoData() {
 async function logAudit(user, action, details) {
     const id = 'log-' + tsId();
     await db.ref('audit_logs/' + id).set({ id, time:now(), user, action, details });
+}
+
+function subscribeData() {
+    db.ref('inventory').on('value', snap => { 
+        allInventory = snap.val() || {}; 
+        refreshDashboardIfActive(); 
+        if (document.getElementById('page-inventory').classList.contains('active')) renderInventory(); 
+    });
+    
+    db.ref('stock_movements').on('value', snap => { 
+        allMovements = snap.val() || {}; 
+        refreshDashboardIfActive(); 
+        if (document.getElementById('page-movements').classList.contains('active')) renderMovements(); 
+    });
+    
+    db.ref('inventory_flags').on('value', snap => {
+        allFlags = snap.val() || {};
+        if (document.getElementById('page-inventory').classList.contains('active')) renderInventory();
+    });
+    
+    db.ref('locations').on('value', snap => { 
+        allLocations = snap.val() || {}; 
+    });
+    
+    db.ref('notifications/admin').on('value', snap => {
+        allNotifs = snap.val() ? Object.values(snap.val()) : [];
+        updateNotifBadge();
+    });
+    
+    // ── ADD THIS ──
+    db.ref('monthly_reports').on('value', snap => {
+        allMonthlyReports = snap.val() || {};
+        // Refresh reports page if active
+        if (document.getElementById('page-reports').classList.contains('active')) {
+            renderContractorReports();
+        }
+    });
 }
