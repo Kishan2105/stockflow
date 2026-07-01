@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
+
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes">
@@ -97,6 +99,42 @@
                     <div class="table-card">
                         <div class="table-header"><div class="table-title">Recent Activity</div></div>
                         <div class="activity-list" id="recent-activity"></div>
+                    </div>
+
+                    <!-- ── AI DASHBOARD WIDGETS ── -->
+                    <div id="ai-dashboard-widgets" style="margin-top:20px;">
+                        <!-- Agent 2: Insights & Reporting -->
+                        <div class="table-card" id="ai-insights-widget">
+                            <div class="table-header">
+                                <div class="table-title">🧠 AI Insights — Executive Summary</div>
+                                <div style="font-size:11px;color:var(--text3);" id="ai-insights-time">Loading...</div>
+                            </div>
+                            <div style="padding:16px 20px;" id="ai-insights-body">
+                                <div style="color:var(--text3);font-style:italic;">Waiting for Agent 2 to run...</div>
+                            </div>
+                        </div>
+
+                        <!-- Agent 3: Demand Forecasting -->
+                        <div class="table-card" id="ai-forecast-widget">
+                            <div class="table-header">
+                                <div class="table-title">📊 Demand Forecast — Urgent Reorders</div>
+                                <div style="font-size:11px;color:var(--text3);" id="ai-forecast-time">Loading...</div>
+                            </div>
+                            <div style="padding:16px 20px;" id="ai-forecast-body">
+                                <div style="color:var(--text3);font-style:italic;">Waiting for Agent 3 to run...</div>
+                            </div>
+                        </div>
+
+                        <!-- Agent 4: Anomaly Detection -->
+                        <div class="table-card" id="ai-anomaly-widget">
+                            <div class="table-header">
+                                <div class="table-title">🚨 Anomaly Detection</div>
+                                <div style="font-size:11px;color:var(--text3);" id="ai-anomaly-time">Loading...</div>
+                            </div>
+                            <div style="padding:16px 20px;" id="ai-anomaly-body">
+                                <div style="color:var(--text3);font-style:italic;">Waiting for Agent 4 to run...</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -416,6 +454,875 @@
 
 <!-- Main App -->
 <script src="js/app.js"></script>
+
+
+
+<!-- StockFlow AI Assistant widget — set STOCKFLOW_WEBHOOK_URL below -->
+<style>
+/* ── AI Assistant Widget Styles ── */
+.sf-assistant-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 10000;
+    font-family: inherit;
+}
+
+/* Floating Button */
+.sf-assistant-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--accent, #2d4b7a);
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+}
+.sf-assistant-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 24px rgba(0,0,0,0.2);
+}
+.sf-assistant-btn svg {
+    width: 28px;
+    height: 28px;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.sf-assistant-btn .sf-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: var(--accent3, #c44a4a);
+    color: #fff;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--surface, #fff);
+}
+
+/* Chat Panel */
+.sf-assistant-panel {
+    display: none;
+    position: absolute;
+    bottom: 68px;
+    right: 0;
+    width: 380px;
+    height: 520px;
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+    flex-direction: column;
+    overflow: hidden;
+}
+.sf-assistant-panel.open {
+    display: flex;
+}
+
+/* Header */
+.sf-assistant-header {
+    background: var(--accent, #2d4b7a);
+    color: #fff;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+.sf-assistant-header h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+    color: #fff;
+}
+.sf-assistant-close {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.8);
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+    transition: color 0.15s;
+}
+.sf-assistant-close:hover {
+    color: #fff;
+}
+
+/* Message Log */
+.sf-assistant-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--bg, #f6f8fc);
+}
+
+/* Message Bubbles */
+.sf-msg {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+.sf-msg.user {
+    align-self: flex-end;
+    background: var(--accent, #2d4b7a);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+}
+.sf-msg.bot {
+    align-self: flex-start;
+    background: var(--surface2, #f0f3f9);
+    color: var(--text, #1a1a2e);
+    border-bottom-left-radius: 4px;
+}
+.sf-msg.error {
+    align-self: flex-start;
+    background: rgba(187,51,51,0.08);
+    color: var(--danger, #b33);
+    border: 1px solid rgba(187,51,51,0.15);
+    border-bottom-left-radius: 4px;
+}
+
+/* Typing Indicator */
+.sf-typing {
+    align-self: flex-start;
+    background: var(--surface2, #f0f3f9);
+    color: var(--text2, #5a6b8a);
+    padding: 10px 16px;
+    border-radius: 14px;
+    border-bottom-left-radius: 4px;
+    display: none;
+    font-size: 13px;
+}
+.sf-typing.show {
+    display: block;
+}
+.sf-typing-dots {
+    display: inline-flex;
+    gap: 4px;
+}
+.sf-typing-dots span {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--text3, #8a9bb8);
+    border-radius: 50%;
+    animation: sf-dot-pulse 1.2s ease-in-out infinite;
+}
+.sf-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.sf-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes sf-dot-pulse {
+    0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+    30% { opacity: 1; transform: scale(1); }
+}
+
+/* Suggestion Chips */
+.sf-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 16px 4px 16px;
+    flex-shrink: 0;
+    background: var(--surface, #ffffff);
+    border-top: 1px solid var(--border, #e2e8f0);
+}
+.sf-chip {
+    background: var(--surface2, #f0f3f9);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text2, #5a6b8a);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    white-space: nowrap;
+}
+.sf-chip:hover {
+    background: var(--accent, #2d4b7a);
+    color: #fff;
+    border-color: var(--accent, #2d4b7a);
+}
+
+/* Input Area */
+.sf-assistant-input {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px 14px 16px;
+    border-top: 1px solid var(--border, #e2e8f0);
+    flex-shrink: 0;
+    background: var(--surface, #ffffff);
+}
+.sf-assistant-input input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--surface2, #f0f3f9);
+    color: var(--text, #1a1a2e);
+    outline: none;
+    transition: border-color 0.15s;
+}
+.sf-assistant-input input:focus {
+    border-color: var(--accent, #2d4b7a);
+}
+.sf-assistant-input input::placeholder {
+    color: var(--text3, #8a9bb8);
+}
+.sf-assistant-input button {
+    padding: 8px 18px;
+    background: var(--accent, #2d4b7a);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+}
+.sf-assistant-input button:hover {
+    opacity: 0.85;
+}
+.sf-assistant-input button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Data Cards */
+.sf-data-card {
+    margin-top: 6px;
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 12px;
+    align-self: flex-start;
+    max-width: 85%;
+    min-width: 160px;
+}
+.sf-data-card .sf-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+}
+.sf-data-card .sf-row:last-child {
+    border-bottom: none;
+}
+.sf-data-card .sf-row .sf-label {
+    color: var(--text2, #5a6b8a);
+}
+.sf-data-card .sf-row .sf-value {
+    font-weight: 600;
+    color: var(--text, #1a1a2e);
+}
+.sf-data-card .sf-top-badge {
+    background: var(--accent4, #c49b3a);
+    color: #fff;
+    border-radius: 10px;
+    padding: 0 8px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-left: 6px;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .sf-assistant-panel {
+        width: calc(100vw - 32px);
+        height: calc(100vh - 120px);
+        right: 0;
+        bottom: 72px;
+        max-height: calc(100vh - 100px);
+    }
+    .sf-assistant-container {
+        bottom: 16px;
+        right: 16px;
+    }
+    .sf-assistant-btn {
+        width: 48px;
+        height: 48px;
+    }
+    .sf-assistant-btn svg {
+        width: 24px;
+        height: 24px;
+    }
+}
+</style>
+
+<div id="sf-assistant-root">
+    <div class="sf-assistant-container">
+        <!-- Floating Button -->
+        <button class="sf-assistant-btn" id="sf-toggle-btn" aria-label="Toggle chat assistant">
+            <svg viewBox="0 0 24 24">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                <line x1="8" y1="10" x2="16" y2="10"/>
+                <line x1="8" y1="14" x2="12" y2="14"/>
+            </svg>
+            <span class="sf-badge" id="sf-badge" style="display:none;">1</span>
+        </button>
+
+        <!-- Chat Panel -->
+        <div class="sf-assistant-panel" id="sf-panel">
+            <!-- Header -->
+            <div class="sf-assistant-header">
+                <h3>💬 StockFlow Assistant</h3>
+                <button class="sf-assistant-close" id="sf-close-btn" aria-label="Close chat">✕</button>
+            </div>
+
+            <!-- Suggestion Chips -->
+            <div class="sf-chips">
+                <button class="sf-chip" data-msg="Which contractor used the most cable?">Most cable?</button>
+                <button class="sf-chip" data-msg="How much cable did FCL Manager use?">FCL Manager</button>
+                <button class="sf-chip" data-msg="List materials used by Sam Manager">Sam Manager</button>
+            </div>
+
+            <!-- Message Log -->
+            <div class="sf-assistant-log" id="sf-log">
+                <!-- Messages will be rendered here -->
+            </div>
+
+            <!-- Typing Indicator -->
+            <div class="sf-typing" id="sf-typing">
+                <span class="sf-typing-dots">
+                    <span></span><span></span><span></span>
+                </span>
+            </div>
+
+            <!-- Input Area -->
+            <div class="sf-assistant-input">
+                <input type="text" id="sf-input" placeholder="Ask about contractor usage..." />
+                <button id="sf-send-btn">Send</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    'use strict';
+
+    // ── CONFIGURATION ──
+    const STOCKFLOW_WEBHOOK_URL = "https://dhruvg17.app.n8n.cloud/webhook/stockflow-chat";
+
+    // ── DOM REFS ──
+    const root = document.getElementById('sf-assistant-root');
+    const panel = document.getElementById('sf-panel');
+    const toggleBtn = document.getElementById('sf-toggle-btn');
+    const closeBtn = document.getElementById('sf-close-btn');
+    const log = document.getElementById('sf-log');
+    const input = document.getElementById('sf-input');
+    const sendBtn = document.getElementById('sf-send-btn');
+    const typing = document.getElementById('sf-typing');
+    const badge = document.getElementById('sf-badge');
+
+    // ── STATE ──
+    let isOpen = false;
+    let isWaiting = false;
+    let hasInteracted = false;
+
+    // ── RENDER HELPERS ──
+
+    function addMessage(text, type, extraHtml) {
+        const div = document.createElement('div');
+        div.className = 'sf-msg ' + type;
+        div.textContent = text;
+        log.appendChild(div);
+        if (extraHtml) {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = extraHtml;
+            wrapper.className = 'sf-msg ' + type + ' sf-msg-wrapper';
+            // Extract inner HTML and append as separate element
+            const content = wrapper.firstElementChild;
+            if (content) {
+                log.appendChild(content);
+            }
+        }
+        log.scrollTop = log.scrollHeight;
+        // Mark as having interacted
+        hasInteracted = true;
+    }
+
+    function addDataCard(html) {
+        const div = document.createElement('div');
+        div.className = 'sf-data-card';
+        div.innerHTML = html;
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function renderTopCard(ranking) {
+        if (!ranking || !ranking.length) return;
+        let html = '';
+        ranking.forEach((item, idx) => {
+            const isTop = idx === 0;
+            html += `
+                <div class="sf-row">
+                    <span class="sf-label">
+                        ${item.contractor || item.name || 'Unknown'}
+                        ${isTop ? '<span class="sf-top-badge">TOP</span>' : ''}
+                    </span>
+                    <span class="sf-value">${item.totalUsed || item.used || 0}</span>
+                </div>
+            `;
+        });
+        addDataCard(html);
+    }
+
+    function renderSumCard(contractor, totalUsed) {
+        const html = `
+            <div class="sf-row">
+                <span class="sf-label">${contractor || 'Contractor'}</span>
+                <span class="sf-value">${totalUsed || 0}</span>
+            </div>
+        `;
+        addDataCard(html);
+    }
+
+    function renderBotMessage(reply, intent, data) {
+        // Always show the reply
+        const div = document.createElement('div');
+        div.className = 'sf-msg bot';
+        div.textContent = reply;
+        log.appendChild(div);
+
+        // Render data card based on intent
+        if (intent === 'top' && data && data.ranking && data.ranking.length) {
+            renderTopCard(data.ranking);
+        } else if (intent === 'sum' && data && data.contractor !== undefined) {
+            renderSumCard(data.contractor, data.totalUsed);
+        }
+        // by_material: no card, reply text already has the list
+
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function showTyping(show) {
+        if (show) {
+            typing.classList.add('show');
+        } else {
+            typing.classList.remove('show');
+        }
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function setWaiting(waiting) {
+        isWaiting = waiting;
+        sendBtn.disabled = waiting;
+        input.disabled = waiting;
+        if (waiting) {
+            showTyping(true);
+        } else {
+            showTyping(false);
+            input.focus();
+        }
+    }
+
+    function updateBadge(count) {
+        if (count > 0 && !isOpen) {
+            badge.textContent = count;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    // ── CORE ──
+
+    function togglePanel() {
+        isOpen = !isOpen;
+        panel.classList.toggle('open', isOpen);
+        if (isOpen) {
+            badge.style.display = 'none';
+            // Add greeting if first open
+            const hasMessages = log.children.length > 0;
+            if (!hasMessages) {
+                addMessage('Hi! Ask me about contractor material usage, or try a suggestion below.', 'bot');
+            }
+            input.focus();
+        } else {
+            // Update badge if there are unread messages
+            // We'll keep it simple — no unread tracking
+        }
+    }
+
+    function closePanel() {
+        if (isOpen) {
+            togglePanel();
+        }
+    }
+
+    async function sendMessage(text) {
+        if (!text || !text.trim()) return;
+        if (isWaiting) return;
+
+        const trimmed = text.trim();
+        addMessage(trimmed, 'user');
+        input.value = '';
+        setWaiting(true);
+
+        try {
+            const response = await fetch(STOCKFLOW_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: trimmed })
+            });
+
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+
+            const data = await response.json();
+
+            if (!data || typeof data.reply !== 'string') {
+                throw new Error('Invalid response format');
+            }
+
+            // Render the bot response
+            renderBotMessage(data.reply, data.intent, data.data);
+
+        } catch (err) {
+            console.error('Assistant error:', err);
+            addMessage(
+                "Couldn't reach the assistant. Please check the connection and try again.",
+                'error'
+            );
+        }
+
+        setWaiting(false);
+    }
+
+    function handleChipClick(e) {
+        const chip = e.currentTarget;
+        const msg = chip.getAttribute('data-msg');
+        if (msg) {
+            sendMessage(msg);
+        }
+    }
+
+    // ── KEYBOARD SHORTCUTS ──
+
+    document.addEventListener('keydown', function(e) {
+        // Escape closes panel
+        if (e.key === 'Escape' && isOpen) {
+            closePanel();
+            e.preventDefault();
+        }
+        // Ctrl+Shift+Space or Ctrl+Shift+? toggles panel
+        if (e.key === ' ' || e.key === '?') {
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+                e.preventDefault();
+                togglePanel();
+            }
+        }
+    });
+
+    // ── INIT ──
+
+    function init() {
+        // Toggle button
+        toggleBtn.addEventListener('click', togglePanel);
+
+        // Close button
+        closeBtn.addEventListener('click', closePanel);
+
+        // Send button
+        sendBtn.addEventListener('click', function() {
+            sendMessage(input.value);
+        });
+
+        // Enter key
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage(input.value);
+            }
+        });
+
+        // Chips
+        document.querySelectorAll('.sf-chip').forEach(function(chip) {
+            chip.addEventListener('click', handleChipClick);
+        });
+
+        // Click outside to close? Let's not — user should use close button or Escape.
+
+        console.log('💬 StockFlow Assistant initialized.');
+        console.log('📡 Webhook URL:', STOCKFLOW_WEBHOOK_URL);
+    }
+
+    // Only init if we have a valid webhook URL
+    if (STOCKFLOW_WEBHOOK_URL && STOCKFLOW_WEBHOOK_URL !== 'https://dhruvg17.app.n8n.cloud/webhook/stockflow-chat') {
+        init();
+    } else {
+        console.warn('⚠️ StockFlow Assistant: Please set STOCKFLOW_WEBHOOK_URL to your n8n webhook URL.');
+        // Show a message in the panel so the user knows
+        // We'll still init, but show a warning in the log
+        // Defer init until after the panel is first opened
+        const origToggle = togglePanel;
+        togglePanel = function() {
+            origToggle.apply(this, arguments);
+            if (isOpen && log.children.length === 0) {
+                addMessage(
+                    '⚠️ Please set STOCKFLOW_WEBHOOK_URL to your n8n webhook URL in the widget script.',
+                    'error'
+                );
+            }
+        };
+        // Still set up the UI, just with a warning
+        document.addEventListener('DOMContentLoaded', function() {
+            // Re-run init with warning mode
+            init();
+        });
+    }
+
+})();
+</script>
+
+<script>
+(function() {
+    'use strict';
+
+    // ── AGENT 2: INSIGHTS ──
+    function renderInsights(snap) {
+        const data = snap.val();
+        const timeEl = document.getElementById('ai-insights-time');
+        const bodyEl = document.getElementById('ai-insights-body');
+
+        if (!data) {
+            timeEl.textContent = 'No data yet';
+            bodyEl.innerHTML = '<div style="color:var(--text3);font-style:italic;">Waiting for Agent 2 to run...</div>';
+            return;
+        }
+
+        timeEl.textContent = 'Updated: ' + (data.generatedAt ? new Date(data.generatedAt).toLocaleString() : 'Unknown');
+
+        let html = '';
+        
+        // Summary
+        if (data.summary) {
+            html += `<div style="margin-bottom:12px;font-size:14px;line-height:1.6;color:var(--text);">${data.summary}</div>`;
+        }
+
+        // Quick stats
+        if (data.stats) {
+            html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:8px;">`;
+            const stats = data.stats;
+            const statItems = [
+                { label: 'Total Stock Value', value: 'Rs ' + (stats.totalStockValueMUR ? stats.totalStockValueMUR.toLocaleString() : '0') },
+                { label: 'Low Stock Items', value: stats.lowStockCount || 0 },
+                { label: 'Top Consumer', value: stats.topConsumer || '—' },
+                { label: 'Top Material', value: stats.topMaterial || '—' }
+            ];
+            statItems.forEach(s => {
+                html += `
+                    <div style="background:var(--surface2);padding:10px 14px;border-radius:8px;">
+                        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">${s.label}</div>
+                        <div style="font-size:16px;font-weight:600;color:var(--text);">${s.value}</div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+        }
+
+        bodyEl.innerHTML = html || '<div style="color:var(--text3);font-style:italic;">No insights available</div>';
+    }
+
+    // ── AGENT 3: FORECASTS ──
+    function renderForecasts(snap) {
+        const data = snap.val();
+        const timeEl = document.getElementById('ai-forecast-time');
+        const bodyEl = document.getElementById('ai-forecast-body');
+
+        if (!data) {
+            timeEl.textContent = 'No data yet';
+            bodyEl.innerHTML = '<div style="color:var(--text3);font-style:italic;">Waiting for Agent 3 to run...</div>';
+            return;
+        }
+
+        // Find the latest timestamp across all items
+        let latestTime = null;
+        const items = Object.values(data);
+        items.forEach(item => {
+            if (item.generatedAt && (!latestTime || new Date(item.generatedAt) > new Date(latestTime))) {
+                latestTime = item.generatedAt;
+            }
+        });
+        timeEl.textContent = 'Updated: ' + (latestTime ? new Date(latestTime).toLocaleString() : 'Unknown');
+
+        // Filter urgent items
+        const urgentItems = items.filter(item => item.urgent === true);
+        const nonUrgentItems = items.filter(item => item.urgent === false || item.urgent === undefined);
+
+        let html = '';
+
+        if (urgentItems.length === 0) {
+            html += `<div style="color:var(--success);font-weight:500;">✅ All items are at healthy stock levels. No urgent reorders needed.</div>`;
+        } else {
+            html += `<div style="margin-bottom:8px;color:var(--danger);font-weight:600;">⚠️ ${urgentItems.length} item(s) need urgent reorder:</div>`;
+            html += `<div style="display:flex;flex-direction:column;gap:6px;">`;
+            urgentItems.forEach(item => {
+                const itemName = item.itemName || item.itemId || 'Unknown';
+                const daysToReorder = item.daysToReorder !== undefined ? Math.round(item.daysToReorder) : '?';
+                const recommendation = item.recommendation || 'Reorder soon.';
+                html += `
+                    <div style="background:rgba(187,51,51,0.06);padding:10px 14px;border-radius:8px;border-left:3px solid var(--danger);">
+                        <div style="font-weight:600;">${itemName}</div>
+                        <div style="font-size:12px;color:var(--text2);">Days until reorder: ${daysToReorder} &nbsp;|&nbsp; ${recommendation}</div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+        }
+
+        // Show a few non-urgent items as well (max 3)
+        if (nonUrgentItems.length > 0) {
+            html += `<div style="margin-top:12px;font-size:12px;color:var(--text3);">${nonUrgentItems.length} other items are at healthy levels. <span style="cursor:pointer;color:var(--accent);" onclick="this.parentElement.nextElementSibling.style.display='block';this.style.display='none';">Show all</span></div>`;
+            html += `<div style="display:none;margin-top:6px;font-size:12px;color:var(--text2);">`;
+            nonUrgentItems.slice(0, 5).forEach(item => {
+                const itemName = item.itemName || item.itemId || 'Unknown';
+                html += `<div style="padding:4px 0;border-bottom:1px solid var(--border);">${itemName} — ${item.recommendation || 'Stock is healthy'}</div>`;
+            });
+            if (nonUrgentItems.length > 5) {
+                html += `<div style="padding:4px 0;color:var(--text3);">... and ${nonUrgentItems.length - 5} more</div>`;
+            }
+            html += `</div>`;
+        }
+
+        bodyEl.innerHTML = html || '<div style="color:var(--text3);font-style:italic;">No forecast data available</div>';
+    }
+
+    // ── AGENT 4: ANOMALIES ──
+    function renderAnomalies(snap) {
+        const data = snap.val();
+        const timeEl = document.getElementById('ai-anomaly-time');
+        const bodyEl = document.getElementById('ai-anomaly-body');
+
+        if (!data) {
+            timeEl.textContent = 'No data yet';
+            bodyEl.innerHTML = '<div style="color:var(--text3);font-style:italic;">Waiting for Agent 4 to run...</div>';
+            return;
+        }
+
+        // Find latest timestamp
+        let latestTime = null;
+        const anomalies = Object.values(data);
+        anomalies.forEach(item => {
+            if (item.detectedAt && (!latestTime || new Date(item.detectedAt) > new Date(latestTime))) {
+                latestTime = item.detectedAt;
+            }
+        });
+        timeEl.textContent = 'Updated: ' + (latestTime ? new Date(latestTime).toLocaleString() : 'Unknown');
+
+        // Filter by status
+        const openAnomalies = anomalies.filter(a => a.status === 'open' || a.status === undefined);
+        const resolvedAnomalies = anomalies.filter(a => a.status === 'resolved');
+
+        let html = '';
+
+        if (openAnomalies.length === 0) {
+            html += `<div style="color:var(--success);font-weight:500;">✅ No open anomalies detected. Everything looks normal.</div>`;
+        } else {
+            html += `<div style="margin-bottom:8px;color:var(--danger);font-weight:600;">🚨 ${openAnomalies.length} open anomaly/ies detected:</div>`;
+            html += `<div style="display:flex;flex-direction:column;gap:8px;">`;
+            openAnomalies.slice(0, 10).forEach(anomaly => {
+                const severity = anomaly.severity || 'medium';
+                const severityColor = severity === 'high' ? 'var(--danger)' : severity === 'medium' ? 'var(--warning)' : 'var(--accent2)';
+                const type = anomaly.type || 'Unknown';
+                const description = anomaly.description || 'No description available.';
+                const contractor = anomaly.contractor || '';
+                const item = anomaly.itemName || anomaly.itemId || '';
+
+                html += `
+                    <div style="background:var(--surface2);padding:10px 14px;border-radius:8px;border-left:3px solid ${severityColor};">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+                            <div style="font-weight:600;font-size:13px;">${type}</div>
+                            <span style="font-size:10px;padding:2px 10px;border-radius:10px;background:${severityColor}22;color:${severityColor};font-weight:600;text-transform:uppercase;">${severity}</span>
+                        </div>
+                        ${contractor ? `<div style="font-size:12px;color:var(--text2);">Contractor: ${contractor}</div>` : ''}
+                        ${item ? `<div style="font-size:12px;color:var(--text2);">Item: ${item}</div>` : ''}
+                        <div style="font-size:13px;color:var(--text);margin-top:4px;">${description}</div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:4px;">Detected: ${anomaly.detectedAt ? new Date(anomaly.detectedAt).toLocaleString() : 'Unknown'}</div>
+                    </div>
+                `;
+            });
+            if (openAnomalies.length > 10) {
+                html += `<div style="color:var(--text3);font-size:12px;">... and ${openAnomalies.length - 10} more anomalies</div>`;
+            }
+            html += `</div>`;
+        }
+
+        if (resolvedAnomalies.length > 0) {
+            html += `<div style="margin-top:12px;font-size:12px;color:var(--text3);">${resolvedAnomalies.length} resolved anomaly/ies.</div>`;
+        }
+
+        bodyEl.innerHTML = html || '<div style="color:var(--text3);font-style:italic;">No anomaly data available</div>';
+    }
+
+    // ── BIND FIREBASE LISTENERS ──
+
+    function bindWidgetListeners() {
+        // Agent 2: Insights
+        const insightsRef = db.ref('ai_insights/latest');
+        insightsRef.on('value', renderInsights);
+
+        // Agent 3: Forecasts
+        const forecastsRef = db.ref('forecasts');
+        forecastsRef.on('value', renderForecasts);
+
+        // Agent 4: Anomalies
+        const anomaliesRef = db.ref('anomalies');
+        anomaliesRef.on('value', renderAnomalies);
+
+        console.log('✅ AI Dashboard Widgets initialized');
+        console.log('📡 Listening to: ai_insights/latest, forecasts, anomalies');
+    }
+
+    // ── INIT ──
+
+    // Wait for Firebase to be ready
+    if (typeof db !== 'undefined' && db) {
+        // Small delay to ensure everything is loaded
+        setTimeout(bindWidgetListeners, 500);
+    } else {
+        console.warn('⚠️ Firebase db not found. Retrying in 2 seconds...');
+        setTimeout(function() {
+            if (typeof db !== 'undefined' && db) {
+                bindWidgetListeners();
+            } else {
+                console.error('❌ Firebase db still not available. Widgets will not work.');
+            }
+        }, 2000);
+    }
+
+})();
+</script>
 
 </body>
 </html>
